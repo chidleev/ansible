@@ -1,0 +1,41 @@
+- hosts: 192.168.201.10
+  become: yes
+  tasks:
+    - name: Update packade list
+      apt: update_cache=true force_apt_get=yes
+
+    - name: Install Curl
+      apt: pkg=curl state=present update_cache=true
+
+    - name: Install Docker
+      shell:
+        cmd: cd ~ && curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+    
+    - name: Copy docker-compose.sh to hosts
+      copy: src=/wsr-skillcloud/docker-compose.sh dest=~/
+
+    - name: Run docker-compose.sh
+      shell:
+        cmd: cd ~ && sh docker-compose.sh
+   
+    - name: Create directory /skillcloud-nginx
+      file:
+        path: /skillcloud-nginx
+        state: directory
+
+    - name: Copy all necessary files for images to /skillcloud-nginx
+      copy:
+        src: /wsr-skillcloud/{{item}}
+        dest: /skillcloud-nginx
+      with_items:
+        ['docker-compose.yml','Dockerfile-balance','Dockerfile-site','index.html','nginx.conf']
+
+
+
+
+    #- name: Chek
+   #   shell:
+  #      cmd: sudo systemctl status docker.service
+ #     register: list
+#
+#    - debug: msg="{{list}}"
