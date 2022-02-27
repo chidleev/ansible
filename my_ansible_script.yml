@@ -1,5 +1,8 @@
-- hosts: 192.168.201.10
+- hosts: projects
   become: yes
+  vars_files:
+    - privvars.yml
+
   tasks:
     - name: Update packade list
       apt: update_cache=true force_apt_get=yes
@@ -10,8 +13,12 @@
     - name: Install Docker
       shell:
         cmd: cd ~ && curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+
+    - name: Start Docker
+      shell:
+        cmd: systemctl start docker.service && systemctl enable docker.service
     
-    - name: Copy docker-compose.sh to hosts
+    - name: Copy docker-compose.sh to the hosts
       copy: src=/wsr-skillcloud/docker-compose.sh dest=~/
 
     - name: Run docker-compose.sh
@@ -30,12 +37,51 @@
       with_items:
         ['docker-compose.yml','Dockerfile-balance','Dockerfile-site','index.html','nginx.conf']
 
+    - name: Create new users
+      user:
+        name: "{{item.name}}"
+        password: "{{item.pass | password_hash('sha512')}}"
+        groups: "root,www-data"
+      with_items: "{{users}}"
 
+    - name: Adding ssh keys
+      authorized_key:
+        user: "{{item.name}}"
+        key: "{{publickey}}"
+        state: present
+      with_items: "{{users}}"
 
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+        logging: 'True'
+
+    - name: Adding UFW rules
+      ufw:
+        rule: allow
+        port: "{{item}}"
+        proto: tcp
+      with_items:
+        - "22"
+        - "80"
+        - "8080"
+        - "1834"
+    - name: Reload UFW
+      ufw: 
+        state: reloaded
+
+    - name: Reload SSH
+      shell:
+        cmd: systemctl restart sshd
+
+    - name: Reboot machine
+      reboot:
 
     #- name: Chek
    #   shell:
   #      cmd: sudo systemctl status docker.service
  #     register: list
 #
-#    - debug: msg="{{list}}"
+#    - debug: msg="{{item.name}}"
+ #     with_items: "{{users}}"
